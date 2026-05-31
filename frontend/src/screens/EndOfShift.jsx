@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { useShift } from '../ShiftContext'
-import { TopBar, AiCard, Skeleton, StatusBadge, MicButton, fmtClock } from '../components/ui'
+import { TopBar, AiCard, Skeleton, StatusBadge, MicButton, fmtClock, fmtDuration } from '../components/ui'
 
 export default function EndOfShift() {
   const nav = useNavigate()
@@ -77,7 +77,12 @@ export default function EndOfShift() {
           {summary?.jobs?.map((j) => (
             <div key={j.id} className="kv">
               <span className="k">{fmtClock(j.dispatched_at)} · {j.title} ({j.room_number})</span>
-              <span className="v"><StatusBadge status={j.status} /></span>
+              <span className="v" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                {j.time_spent_seconds != null && (
+                  <span className="muted" style={{ fontSize: 12 }}>⏱ {fmtDuration(j.time_spent_seconds)}</span>
+                )}
+                <StatusBadge status={j.status} />
+              </span>
             </div>
           ))}
         </div>

@@ -23,6 +23,7 @@ export default function Home() {
   const [confirmReset, setConfirmReset] = useState(false)
   const [resetting, setResetting] = useState(false)
   const [unread, setUnread] = useState(0)
+  const [estimates, setEstimates] = useState({}) // { jobId: "~20 min" }, AI-generated on load
 
   function ingest(data, initial) {
     if (initial) {
@@ -50,6 +51,8 @@ export default function Home() {
     load(true)
     loadUnread()
     refresh().catch(() => {})
+    // AI completion estimates for the cards — generated once when the shift loads.
+    api.aiEstimates().then((m) => active && setEstimates(m)).catch(() => {})
     const t = setInterval(() => { load(false); loadUnread() }, POLL_MS)
     return () => { active = false; clearInterval(t) }
   }, [refresh])
@@ -83,6 +86,7 @@ export default function Home() {
       setNewIds(new Set())
       seenIds.current = new Set(d.map((j) => j.id))
       setJobs(d)
+      api.aiEstimates().then(setEstimates).catch(() => {})
       await refresh().catch(() => {})
     } catch (e) {
       setErr(e.message)
@@ -152,12 +156,12 @@ export default function Home() {
           <span>Jobs this shift</span>
           {newIds.size > 0 && <button className="unread" onClick={() => setNewIds(new Set())}>● {newIds.size} new</button>}
         </div>
-        {dispatched.map((j) => <JobCard key={j.id} job={j} isNew={newIds.has(j.id)} />)}
+        {dispatched.map((j) => <JobCard key={j.id} job={j} isNew={newIds.has(j.id)} estimate={estimates[j.id]} />)}
 
         {adhoc.length > 0 && (
           <>
             <div className="section-title adhoc-title">Ad-hoc / Self-logged</div>
-            {adhoc.map((j) => <JobCard key={j.id} job={j} isNew={newIds.has(j.id)} />)}
+            {adhoc.map((j) => <JobCard key={j.id} job={j} isNew={newIds.has(j.id)} estimate={estimates[j.id]} />)}
           </>
         )}
       </div>

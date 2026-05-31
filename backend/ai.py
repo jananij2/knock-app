@@ -247,6 +247,91 @@ def note_from_photo(job, room, media_type, image_b64):
 
 
 # ---------------------------------------------------------------------------
+# 4c. Ad-hoc job title suggestions (from the tech's free-text description)
+# ---------------------------------------------------------------------------
+TITLE_INSTRUCTIONS = (
+    "The technician typed a free-text description of a maintenance problem they "
+    "found. Suggest exactly 3 short, professional job titles (3-6 words each) that "
+    "could head this job's ticket. Title-case, specific to the description and job "
+    "type, no trailing punctuation. Order from most to least likely."
+)
+TITLE_SCHEMA = {
+    "type": "object",
+    "properties": {"titles": {"type": "array", "items": {"type": "string"}}},
+    "required": ["titles"],
+    "additionalProperties": False,
+}
+
+
+def suggest_titles(description, job_type):
+    payload = {"description": description, "job_type": job_type}
+    try:
+        out = _complete(TITLE_INSTRUCTIONS, payload, TITLE_SCHEMA, max_tokens=200)
+        titles = [t.strip() for t in out.get("titles", []) if t and t.strip()][:3]
+        if titles:
+            return {"titles": titles, "generated_by": "claude"}
+        raise ValueError("no titles returned")
+    except Exception as e:  # noqa: BLE001 — degrade gracefully
+        log.warning("suggest_titles fell back to template: %s", e)
+        return {"titles": _fallback_titles(description, job_type), "generated_by": "fallback"}
+
+
+# ---------------------------------------------------------------------------
+# 4d. Estimated time-to-complete per job (batched — one call for all home cards)
+# ---------------------------------------------------------------------------
+ESTIMATE_INSTRUCTIONS = (
+    "Estimate how long each maintenance job will take and return a short label.\n"
+    "Baselines by job type, adjusted UP when the room has a repeat issue (prior tickets):\n"
+    "- hvac: ~20-30 min\n"
+    "- plumbing: ~15-20 min\n"
+    "- electrical: ~10 min\n"
+    "- general: ~10-15 min\n"
+    "Return one estimate per job, echoing its job_id. Each estimate must be of the "
+    "form '~N min' or '~N-M min'."
+)
+ESTIMATE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "estimates": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "job_id": {"type": "integer"},
+                    "estimate": {"type": "string"},
+                },
+                "required": ["job_id", "estimate"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["estimates"],
+    "additionalProperties": False,
+}
+
+
+def time_estimates(jobs):
+    """jobs: list of {id, job_type, repeat}. Always returns one estimate per job
+    (Claude where possible, heuristic fallback for any the model omits)."""
+    payload = {"jobs": [{"job_id": j["id"], "job_type": j["job_type"],
+                         "repeat_issue": bool(j["repeat"])} for j in jobs]}
+    est_map = {}
+    generated_by = "fallback"
+    try:
+        out = _complete(ESTIMATE_INSTRUCTIONS, payload, ESTIMATE_SCHEMA, max_tokens=400)
+        est_map = {e["job_id"]: e["estimate"] for e in out.get("estimates", [])
+                   if e.get("estimate")}
+        if est_map:
+            generated_by = "claude"
+    except Exception as e:  # noqa: BLE001
+        log.warning("time_estimates fell back to template: %s", e)
+    estimates = [{"job_id": j["id"],
+                  "estimate": est_map.get(j["id"]) or _fallback_estimate(j["job_type"], j["repeat"])}
+                 for j in jobs]
+    return {"estimates": estimates, "generated_by": generated_by}
+
+
+# ---------------------------------------------------------------------------
 # 5. Escalation routing summary
 # ---------------------------------------------------------------------------
 ROUTING_INSTRUCTIONS = (
@@ -373,6 +458,23 @@ def _fallback_resolution_and_closeout(job, room, chips, tech_notes, tickets):
                 f"{job['room_number']}. Please let the front desk know if anything still "
                 "needs attention. Thank you.")
     return {"resolution_summary": " ".join(parts), "closeout_message": closeout}
+
+
+def _fallback_titles(description, job_type):
+    d = " ".join((description or "").split()).rstrip(".")
+    label = job_type.capitalize()
+    primary = (d[:48].strip().capitalize()) if d else f"{label} issue"
+    return [primary, f"{label} repair needed", f"Guest-reported {job_type} issue"]
+
+
+_ESTIMATE_BASE = {"hvac": 25, "plumbing": 18, "electrical": 10, "general": 12}
+
+
+def _fallback_estimate(job_type, repeat):
+    minutes = _ESTIMATE_BASE.get(job_type, 15)
+    if repeat:
+        minutes += 10  # repeat issue — allow more time
+    return f"~{minutes} min"
 
 
 def _fallback_photo_note(job):

@@ -52,6 +52,9 @@ export const api = {
     req('/ai/escalation', json('POST', { job_id, reason_chips })),
   aiPhotoNote: (job_id, image) =>
     req('/ai/photo-note', json('POST', { job_id, image })),
+  aiTitleSuggestions: (description, job_type) =>
+    req('/ai/title-suggestions', json('POST', { description, job_type })),
+  aiEstimates: () => req('/ai/estimates', json('POST', {})),
   aiHandoff: () => req('/ai/handoff', json('POST', {})),
 
   // shift

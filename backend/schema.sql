@@ -40,7 +40,9 @@ CREATE TABLE IF NOT EXISTS jobs (
     findings            TEXT NOT NULL DEFAULT '[]', -- JSON array of selected chips
     tech_notes          TEXT,
     ai_context_summary  TEXT,                       -- cached Claude output (read-only feature)
-    ai_resolution_summary TEXT                      -- cached Claude output, confirmed by tech
+    ai_resolution_summary TEXT,                     -- cached Claude output, confirmed by tech
+    time_spent_seconds  INTEGER,                    -- active time on the job, set when closed/escalated
+    ai_time_estimate    TEXT                        -- AI completion estimate for the home card, e.g. "~20 min"
 );
 
 -- tickets: prior maintenance history per room (repeat-issue detection).

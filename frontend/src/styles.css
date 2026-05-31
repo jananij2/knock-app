@@ -182,7 +182,19 @@ button { font-family: inherit; }
 .jobcard .room { font-size: 14px; color: var(--text-2); margin-top: 2px; }
 .jobcard .meta { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; }
 .jobcard .time { font-size: 12px; color: var(--text-3); }
+.jobcard .est { font-size: 11px; color: var(--text-3); margin-top: 4px; }
 .jobcard.done { opacity: 0.55; }
+
+/* ---- live job timer (job-in-progress screen) ---- */
+.job-timer {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  background: var(--surface); border-radius: var(--radius); padding: 12px;
+  box-shadow: var(--shadow);
+}
+.job-timer .t { font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: 0.02em; color: var(--text); }
+.job-timer .lbl { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-3); }
+.job-timer .dot-live { width: 9px; height: 9px; border-radius: 50%; background: var(--urgent); animation: pulse-live 1.4s ease-in-out infinite; }
+@keyframes pulse-live { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
 
 /* ---- priority badge ---- */
 .badge {

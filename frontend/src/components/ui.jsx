@@ -107,6 +107,13 @@ export function fmtClock(iso) {
   return `${h12}:${m} ${ampm}`
 }
 
+// MM:SS from a whole number of seconds (job timer + shift-log durations).
+export function fmtDuration(secs) {
+  if (secs == null || Number.isNaN(secs)) return null
+  const s = Math.max(0, Math.floor(secs))
+  return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
+}
+
 // ---- voice input (Web Speech API) — streams dictation into a field live ----
 // Controlled via `setValue`. Each dictation session starts fresh and OVERWRITES
 // the field: as the user speaks, the live transcript replaces whatever was there

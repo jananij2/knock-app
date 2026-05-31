@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { api } from '../api'
-import { TopBar, fmtClock, MicButton, MessageComposer, isImageMsg } from '../components/ui'
+import { TopBar, fmtClock, fmtDuration, MicButton, MessageComposer, isImageMsg } from '../components/ui'
 import { FINDING_CHIPS } from '../constants'
 
 export default function JobInProgress() {
@@ -86,6 +86,9 @@ export default function JobInProgress() {
     <>
       <TopBar title={job.title} sub={`Room ${job.room_number} · in progress`} back={`/jobs/${id}`} />
       <div className="screen">
+        {/* Live job timer (runs from when the job was started) */}
+        <JobTimer startedAt={job.started_at} />
+
         {/* Findings chips */}
         <div className="panel">
           <h3>Findings ({jobType})</h3>
@@ -145,6 +148,24 @@ export default function JobInProgress() {
         </div>
       </div>
     </>
+  )
+}
+
+// ---- live elapsed-time counter, ticking from when the job was started ----
+function JobTimer({ startedAt }) {
+  const startRef = useRef(startedAt ? new Date(startedAt).getTime() : Date.now())
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [])
+  const elapsed = fmtDuration((now - startRef.current) / 1000)
+  return (
+    <div className="job-timer">
+      <span className="dot-live" />
+      <span className="t">{elapsed}</span>
+      <span className="lbl">elapsed</span>
+    </div>
   )
 }
 

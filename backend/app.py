@@ -45,6 +45,17 @@ def now_iso() -> str:
     return datetime.now().isoformat(timespec="seconds")
 
 
+def _elapsed_seconds(start_iso, end_iso):
+    """Whole seconds between two ISO timestamps, or None if either is missing/bad."""
+    if not start_iso or not end_iso:
+        return None
+    try:
+        return int((datetime.fromisoformat(end_iso) - datetime.fromisoformat(start_iso))
+                   .total_seconds())
+    except ValueError:
+        return None
+
+
 def row_to_dict(row):
     return dict(row) if row is not None else None
 
@@ -134,6 +145,7 @@ def create_job():
     title = (data.get("title") or "").strip()
     job_type = data.get("job_type", "general")
     priority = data.get("priority", "normal")
+    tech_notes = (data.get("tech_notes") or "").strip() or None
     if not room_number or not title:
         abort(400, description="room_number and title are required")
     if job_type not in ("hvac", "plumbing", "electrical", "general"):
@@ -151,9 +163,9 @@ def create_job():
                 (room_number, floor))
         cur = conn.execute(
             """INSERT INTO jobs (title, room_number, floor, priority, status,
-                                 dispatched_at, job_type, source)
-               VALUES (?, ?, ?, ?, 'pending', ?, ?, 'adhoc')""",
-            (title, room_number, floor, priority, now_iso(), job_type))
+                                 dispatched_at, job_type, source, tech_notes)
+               VALUES (?, ?, ?, ?, 'pending', ?, ?, 'adhoc', ?)""",
+            (title, room_number, floor, priority, now_iso(), job_type, tech_notes))
         conn.commit()
         job = _job(conn, cur.lastrowid)
         job["findings"] = json.loads(job["findings"] or "[]")
@@ -187,16 +199,22 @@ def update_status(job_id):
 
     conn = get_db()
     try:
-        if not _job(conn, job_id):
+        job = _job(conn, job_id)
+        if not job:
             abort(404, description="Job not found")
+        ts = now_iso()
         sets = ["status = ?"]
         params = [status]
         if status == "in_progress":
             sets.append("started_at = COALESCE(started_at, ?)")
-            params.append(now_iso())
+            params.append(ts)
         elif status == "resolved":
             sets.append("resolved_at = ?")
-            params.append(now_iso())
+            params.append(ts)
+            elapsed = _elapsed_seconds(job["started_at"], ts)
+            if elapsed is not None:
+                sets.append("time_spent_seconds = ?")
+                params.append(elapsed)
         params.append(job_id)
         conn.execute(f"UPDATE jobs SET {', '.join(sets)} WHERE id = ?", params)
         conn.commit()
@@ -386,7 +404,12 @@ def escalate(job_id):
              1 if routed["front_desk"] else 0,
              1 if routed["engineering_log"] else 0,
              now_iso()))
-        conn.execute("UPDATE jobs SET status = 'escalated' WHERE id = ?", (job_id,))
+        elapsed = _elapsed_seconds(job["started_at"], now_iso())
+        if elapsed is not None:
+            conn.execute("UPDATE jobs SET status = 'escalated', time_spent_seconds = ? WHERE id = ?",
+                         (elapsed, job_id))
+        else:
+            conn.execute("UPDATE jobs SET status = 'escalated' WHERE id = ?", (job_id,))
         conn.commit()
         esc = row_to_dict(conn.execute(
             "SELECT * FROM escalations WHERE job_id = ? ORDER BY id DESC LIMIT 1",
@@ -471,6 +494,45 @@ def ai_resolution():
     finally:
         conn.close()
     return jsonify(result)
+
+
+@app.post("/api/ai/title-suggestions")
+def ai_title_suggestions():
+    """3 suggested job titles from the tech's free-text description (ad-hoc form).
+    Read-only draft — the tech taps one or types their own."""
+    data = request.get_json(force=True) or {}
+    description = (data.get("description") or "").strip()
+    job_type = data.get("job_type", "general")
+    if not description:
+        return jsonify({"titles": [], "generated_by": "none"})
+    return jsonify(ai.suggest_titles(description, job_type))
+
+
+@app.post("/api/ai/estimates")
+def ai_estimates():
+    """AI completion estimate per job for the home cards. Generated once and cached
+    on the job row; subsequent calls only fill in jobs that don't have one yet.
+    Returns a {job_id: estimate} map for every job."""
+    conn = get_db()
+    try:
+        rows = [dict(r) for r in conn.execute("SELECT * FROM jobs").fetchall()]
+        missing = [j for j in rows if not j.get("ai_time_estimate")]
+        if missing:
+            payload = []
+            for j in missing:
+                cnt = conn.execute("SELECT COUNT(*) FROM tickets WHERE room_number = ?",
+                                   (j["room_number"],)).fetchone()[0]
+                payload.append({"id": j["id"], "job_type": j["job_type"], "repeat": cnt > 0})
+            result = ai.time_estimates(payload)
+            for e in result["estimates"]:
+                conn.execute("UPDATE jobs SET ai_time_estimate = ? WHERE id = ?",
+                             (e["estimate"], e["job_id"]))
+            conn.commit()
+        out = {str(r["id"]): r["ai_time_estimate"] for r in
+               conn.execute("SELECT id, ai_time_estimate FROM jobs").fetchall()}
+    finally:
+        conn.close()
+    return jsonify(out)
 
 
 @app.post("/api/ai/photo-note")

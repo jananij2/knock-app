@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { PriorityBadge, StatusBadge, FlagTags, fmtClock } from './ui'
 
-export default function JobCard({ job, isNew }) {
+export default function JobCard({ job, isNew, estimate }) {
   const nav = useNavigate()
   const done = job.status === 'resolved' || job.status === 'escalated'
   const adhoc = job.source === 'adhoc'
@@ -27,6 +27,7 @@ export default function JobCard({ job, isNew }) {
       <div className="meta">
         <span className="time">Dispatched {fmtClock(job.dispatched_at)}</span>
       </div>
+      {estimate && <div className="est">Est. {estimate} to complete</div>}
     </button>
   )
 }
