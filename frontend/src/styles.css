@@ -307,7 +307,7 @@ button { font-family: inherit; }
 .fp-wing.right .fp-room::after { left: -2px; }
 
 .shift-header { color: var(--on-dark); }
-.shift-header .logo { font-size: 15px; font-weight: 800; letter-spacing: 0.06em; color: #fff; margin-bottom: 6px; }
+.shift-header .logo { font-family: 'Lobster', cursive; font-style: normal; font-size: 15px; font-weight: 400; letter-spacing: 0.06em; color: #fff; margin-bottom: 6px; }
 .shift-header .logo::first-letter { color: var(--c-lime); }
 .shift-header .brand { font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #ecc9c2; margin-bottom: 2px; }
 .shift-header .name { font-size: 20px; font-weight: 700; }
@@ -542,9 +542,9 @@ label.field { display: block; font-size: 13px; color: var(--text-2); margin-bott
 .door-panel.right::before { content: ''; position: absolute; left: 12px; top: 50%; width: 13px; height: 13px; border-radius: 50%; background: var(--c-lime); transform: translateY(-50%); box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.15); }
 .door-splash.open .door-panel.left { transform: translateX(-101%); }
 .door-splash.open .door-panel.right { transform: translateX(101%); }
-.door-center { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 2; color: #fff; text-align: center; transition: opacity 0.4s ease; }
+.door-center { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 2; color: #fff; text-align: center; transition: opacity 0.4s ease; transform: translateY(-44px); }
 .door-splash.open .door-center { opacity: 0; }
-.splash-logo { font-size: 46px; font-weight: 800; letter-spacing: 0.02em; }
+.splash-logo { font-family: 'Lobster', cursive; font-style: normal; font-size: 46px; font-weight: 400; letter-spacing: 0.02em; }
 .splash-logo::first-letter { color: var(--c-lime); }
 .knock-hint { font-size: 14px; opacity: 0.85; margin-top: 8px; letter-spacing: 0.08em; }
 .door-knock { animation: knockshake 0.6s ease-in-out 2; }
@@ -560,7 +560,7 @@ label.field { display: block; font-size: 13px; color: var(--text-2); margin-bott
 .spark-1 { top: -16px; left: 4px; font-size: 22px; animation: twinkle 1.5s ease 0.1s infinite; }
 .spark-2 { bottom: -12px; right: -8px; font-size: 16px; animation: twinkle 1.5s ease 0.5s infinite; }
 .spark-3 { top: -6px; right: 30%; font-size: 13px; animation: twinkle 1.5s ease 0.9s infinite; }
-.splash-welcome { font-size: 28px; font-weight: 800; animation: fadeup 0.5s ease both; }
+.splash-welcome { font-family: 'Lobster', cursive; font-style: normal; font-size: 28px; font-weight: 400; animation: fadeup 0.5s ease both; }
 @keyframes knockpop { from { opacity: 0; transform: scale(0.7) translateY(8px); } to { opacity: 1; transform: none; } }
 @keyframes wand { from { left: -45%; } to { left: 135%; } }
 @keyframes twinkle { 0%, 100% { opacity: 0; transform: scale(0.6) rotate(0deg); } 50% { opacity: 1; transform: scale(1.1) rotate(20deg); } }
