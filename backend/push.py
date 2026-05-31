@@ -9,6 +9,8 @@ no-op that reports it — the rest of the app keeps working.
 
 import json
 import logging
+import os
+import tempfile
 from pathlib import Path
 
 from pywebpush import WebPushException, webpush
@@ -21,9 +23,34 @@ HERE = Path(__file__).resolve().parent
 PRIVATE_PEM = HERE / "vapid_private.pem"
 VAPID_JSON = HERE / "vapid.json"
 
+_env_pem_path = None  # cached temp file for an env-provided private key
+
+
+def _materialize_env_pem(pem: str) -> str:
+    """pywebpush wants a PEM file path; write the env-provided key to a temp
+    file once and reuse it. Env vars often store PEM newlines as literal \\n."""
+    global _env_pem_path
+    if _env_pem_path and Path(_env_pem_path).exists():
+        return _env_pem_path
+    f = tempfile.NamedTemporaryFile("w", suffix=".pem", delete=False)
+    f.write(pem.replace("\\n", "\n"))
+    f.close()
+    _env_pem_path = f.name
+    return _env_pem_path
+
 
 def _vapid():
-    """Return (private_pem_path, public_key, sub) or None if not configured."""
+    """Return (private_pem_path, public_key, sub) or None if not configured.
+
+    Env vars win over on-disk files so deployments (Railway, where gen_vapid.py
+    output isn't committed and the disk is ephemeral) can supply keys as config:
+    VAPID_PRIVATE_KEY (PEM), VAPID_PUBLIC_KEY (base64url), VAPID_SUBJECT.
+    """
+    priv = os.environ.get("VAPID_PRIVATE_KEY")
+    pub = os.environ.get("VAPID_PUBLIC_KEY")
+    if priv and pub:
+        sub = os.environ.get("VAPID_SUBJECT", "mailto:dispatch@knock.example")
+        return _materialize_env_pem(priv), pub, sub
     if not (PRIVATE_PEM.exists() and VAPID_JSON.exists()):
         return None
     meta = json.loads(VAPID_JSON.read_text())

@@ -4,13 +4,20 @@ Raw sqlite3 (no ORM), per project decision. This module owns the connection
 helper and schema initialisation; Flask and seed.py both import from here.
 """
 
+import os
 import sqlite3
 from pathlib import Path
 
-# dispatch.db lives next to this file, in backend/.
+# dispatch.db lives next to this file, in backend/, by default. In deployment
+# (e.g. Railway) set KNOCK_DB_PATH to a writable, ideally volume-backed path so
+# the database survives restarts — otherwise it lives on the ephemeral disk.
 BACKEND_DIR = Path(__file__).resolve().parent
-DB_PATH = BACKEND_DIR / "dispatch.db"
+DB_PATH = Path(os.environ.get("KNOCK_DB_PATH", BACKEND_DIR / "dispatch.db"))
 SCHEMA_PATH = BACKEND_DIR / "schema.sql"
+
+# Make sure the directory for the DB exists (relevant when KNOCK_DB_PATH points
+# at a freshly mounted volume like /data/dispatch.db).
+DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 
 def get_db() -> sqlite3.Connection:

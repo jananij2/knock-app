@@ -1,0 +1,27 @@
+# Keep the build context small and free of secrets / generated artifacts.
+.git/
+**/__pycache__/
+**/*.py[cod]
+
+# Python virtualenv (rebuilt from requirements.txt)
+backend/.venv/
+
+# Node deps + build output (rebuilt in the frontend stage)
+frontend/node_modules/
+frontend/dist/
+
+# Local database (recreated by bootstrap.py on first boot)
+*.db
+*.sqlite
+*.sqlite3
+
+# Secrets — supplied as Railway env vars, never baked into the image
+.env
+.env.*
+*.pem
+backend/vapid.json
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/

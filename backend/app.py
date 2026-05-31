@@ -10,20 +10,33 @@ explicit POST carrying the (tech-confirmed) text.
 """
 
 import json
+import os
 from datetime import datetime
+from pathlib import Path
 
 from dotenv import load_dotenv
-from flask import Flask, jsonify, request, abort
+from flask import Flask, jsonify, request, abort, send_from_directory
 from flask_cors import CORS
 
 import ai
 import push
-from models import get_db, init_db
+from models import BACKEND_DIR, get_db, init_db
 
 load_dotenv()  # load ANTHROPIC_API_KEY etc. from backend/.env if present (won't override real env)
 
-app = Flask(__name__)
-CORS(app)  # frontend runs on a separate origin (Vite dev server)
+# Dev/demo endpoints (/api/dev/*) reseed the DB and dispatch fake jobs — handy
+# for demos but unauthenticated, so they're off unless explicitly enabled.
+DEV_ROUTES_ENABLED = os.environ.get("ENABLE_DEV_ROUTES", "").lower() in (
+    "1", "true", "yes", "on")
+
+# The Vite build is emitted to frontend/dist (sibling of backend/). In production
+# Flask serves those static files itself so the whole app is one origin / one
+# Railway service. In local dev the Vite server proxies /api here instead.
+FRONTEND_DIST = BACKEND_DIR.parent / "frontend" / "dist"
+
+# static_folder=None: we handle static + SPA fallback ourselves (see serve_spa).
+app = Flask(__name__, static_folder=None)
+CORS(app)  # harmless in prod (same origin); needed for the Vite dev server
 
 PRIORITY_RANK = {"urgent": 0, "high": 1, "normal": 2}
 
@@ -595,8 +608,15 @@ def push_subscribe():
 # Dev-only: dispatch a new job to demonstrate the push flow.
 # NOT in the PRD (the MVP has no job-creation flow), but screen 9 / the push
 # spec need something to fire on "new job creation". Inserts a sample job +
-# its room, then pushes to all subscriptions. Remove for production.
+# its room, then pushes to all subscriptions. Gated behind ENABLE_DEV_ROUTES;
+# when disabled the routes return 404 as if they didn't exist.
 # ---------------------------------------------------------------------------
+def _require_dev_routes():
+    if not DEV_ROUTES_ENABLED:
+        abort(404, description="Not found")
+
+
+
 _DEMO_JOBS = [
     {"title": "Thermostat unresponsive", "room": "220", "floor": 2, "priority": "high",
      "job_type": "hvac", "occupancy": "occupied", "guest": "Lena Cho", "tier": "gold", "vip": 0},
@@ -610,6 +630,7 @@ _DEMO_JOBS = [
 @app.post("/api/dev/reset")
 def dev_reset():
     """Re-run seed.py — drops everything and restores a fresh start-of-shift."""
+    _require_dev_routes()
     import seed
     seed.seed()
     return jsonify({"reset": True})
@@ -617,6 +638,7 @@ def dev_reset():
 
 @app.post("/api/dev/dispatch-job")
 def dev_dispatch_job():
+    _require_dev_routes()
     data = request.get_json(force=True) or {}
     conn = get_db()
     try:
@@ -665,6 +687,28 @@ def handle_error(err):
 @app.get("/api/health")
 def health():
     return jsonify({"status": "ok"})
+
+
+# ---------------------------------------------------------------------------
+# Static frontend (production single-service deploy)
+# ---------------------------------------------------------------------------
+# Serve the built SPA for every non-/api path. Real files (JS/CSS/sw.js) are
+# returned directly; anything else falls back to index.html so client-side
+# routes (e.g. /jobs/3) work on hard refresh / deep links.
+@app.get("/", defaults={"path": ""})
+@app.get("/<path:path>")
+def serve_spa(path):
+    if path.startswith("api/"):  # unmatched API path — don't serve HTML for it
+        abort(404, description="Not found")
+    index = FRONTEND_DIST / "index.html"
+    if not index.exists():
+        # No build present (e.g. running the backend alone in local dev — use
+        # the Vite dev server at :5173 instead, which proxies /api here).
+        abort(404, description="Frontend not built. Run `npm run build` in frontend/.")
+    target = FRONTEND_DIST / path
+    if path and target.is_file():
+        return send_from_directory(FRONTEND_DIST, path)
+    return send_from_directory(FRONTEND_DIST, "index.html")
 
 
 if __name__ == "__main__":

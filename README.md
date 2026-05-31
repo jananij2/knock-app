@@ -23,6 +23,7 @@ knock-app/
     models.py         sqlite3 connection + schema init
     schema.sql        table definitions
     seed.py           drops + repopulates the demo shift
+    bootstrap.py      startup: seed only if the DB is empty (deploy)
     gen_vapid.py      one-time VAPID keypair generator
     requirements.txt
     .env.example
@@ -30,6 +31,8 @@ knock-app/
     src/              React app (screens/, components/)
     public/sw.js      service worker (push + notification click)
     package.json
+  Dockerfile          single-service image (build frontend → serve via Flask)
+  .dockerignore
   README.md
 ```
 
@@ -105,8 +108,35 @@ Open a job → read the AI **context briefing** and **suggested guest message** 
 
 - **VIP is a boolean** (`rooms.vip`). Loyalty tier is **display-only** and drives no behavior — that's why Hermione (Gold) is not flagged VIP. Only Minerva (312) is VIP, so only she triggers the soft gate.
 - **AI is draft-only.** Nothing is sent or logged without an explicit confirm step. If a Claude call fails or no key is set, the endpoint returns a templated fallback (`generated_by: "fallback"`) so the app never breaks.
-- **`POST /api/dev/dispatch-job` is dev-only** — the MVP has no real job-creation flow; this endpoint exists solely to demonstrate push + the new-job UX. Remove it for production.
+- **`/api/dev/*` are demo-only and gated** — the MVP has no real job-creation flow; these endpoints exist solely to demonstrate push + the new-job UX and to reseed. They're disabled unless `ENABLE_DEV_ROUTES=1`, and return 404 otherwise.
 - The backend runs with `debug=True` on port 5001 for local development only.
+
+## Deployment (Railway — single service)
+
+In production the React app is built to static files that **Flask serves itself**, so the API and UI share one origin and run as **one Railway service** behind a single URL. The included multi-stage `Dockerfile` builds the frontend, copies `frontend/dist` next to the backend, and runs gunicorn (Railway auto-detects the Dockerfile — no build config needed).
+
+**Deploy:**
+
+1. Push this repo to GitHub and create a Railway project from it (Railway detects the `Dockerfile`).
+2. Set environment variables in the Railway service:
+   - `ANTHROPIC_API_KEY` — optional; without it, AI endpoints return templated fallback drafts.
+   - `VAPID_PRIVATE_KEY`, `VAPID_PUBLIC_KEY`, `VAPID_SUBJECT` — optional; enable Web Push. Run `python gen_vapid.py` locally once and copy the values. Without them, push is a no-op and the rest of the app works.
+   - `KNOCK_DB_PATH` — optional; set to a path on a mounted volume (e.g. `/data/dispatch.db`) to persist data across deploys.
+   - `ENABLE_DEV_ROUTES` — optional; set to `1` to expose the unauthenticated dev/demo endpoints (`/api/dev/reset`, `/api/dev/dispatch-job`). Off by default; turn on if you want to demo push or reseed on the live URL.
+   - `PORT` is injected by Railway automatically; gunicorn binds to it.
+3. Deploy. On first boot, `bootstrap.py` creates the schema and seeds the demo shift **only if the database is empty** — so a fresh/ephemeral disk gets seeded each deploy, while a volume-backed disk keeps its data.
+
+**Data persistence:** SQLite lives on the container's disk, which is ephemeral on Railway. Without a volume, the DB resets (reseeds) on every deploy/restart — fine for a demo. To persist, attach a Railway volume and point `KNOCK_DB_PATH` at it.
+
+**Build/run the image locally** (mirrors production):
+
+```bash
+docker build -t knock .
+docker run -p 8080:8080 -e ANTHROPIC_API_KEY=sk-ant-... knock
+# open http://localhost:8080  (API + UI on one origin)
+```
+
+> Note: browser push requires HTTPS (Railway provides it). On `http://localhost` Chrome also permits it, but not over plain-HTTP LAN IPs.
 
 ## Out of scope (per the brief)
 
