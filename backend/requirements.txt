@@ -1,0 +1,5 @@
+Flask==3.0.3
+flask-cors==4.0.1
+anthropic>=0.105.2         # Claude API integration (output_config, effort, structured outputs)
+pywebpush==2.3.0           # browser Web Push (build step 5)
+python-dotenv==1.0.1
