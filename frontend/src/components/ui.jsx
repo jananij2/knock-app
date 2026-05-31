@@ -108,25 +108,16 @@ export function fmtClock(iso) {
 }
 
 // ---- voice input (Web Speech API) — streams dictation into a field live ----
-// Controlled: pass the field's current `value` + its `setValue`. As the user
-// speaks, interim results are written into the field in real time (not only when
-// they stop). `onComplete(text)` fires once on stop with the dictated text — used
-// where dictation also needs to do something else (e.g. post it to the thread).
-// Renders the button everywhere (Safari/iOS lacks SpeechRecognition — detected on tap).
+// Controlled via `setValue`. Each dictation session starts fresh and OVERWRITES
+// the field: as the user speaks, the live transcript replaces whatever was there
+// (it does not append). `onComplete(text)` fires once on stop with the dictated
+// text — used where dictation also needs to do something else (e.g. post it to
+// the thread). Renders everywhere (Safari/iOS lacks SpeechRecognition — detected on tap).
 export function MicButton({ value = '', setValue, onComplete, label = 'Dictate' }) {
   const [rec, setRec] = useState(false)
   const [noSupport, setNoSupport] = useState(false)
   const ref = useRef(null)
-  const baseRef = useRef('')   // field text captured when recording started
   const liveRef = useRef('')   // full transcript dictated this session
-
-  // base + the live transcript, with one space between when both are present.
-  function compose(transcript) {
-    const base = baseRef.current
-    const t = (transcript || '').trim()
-    if (!t) return base
-    return base && base.trim() ? `${base.trim()} ${t}` : t
-  }
 
   function toggle() {
     const SR = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition)
@@ -138,7 +129,6 @@ export function MicButton({ value = '', setValue, onComplete, label = 'Dictate' 
       ref.current?.stop()
       return
     }
-    baseRef.current = value || ''
     liveRef.current = ''
     const r = new SR()
     r.lang = 'en-US'
@@ -148,7 +138,7 @@ export function MicButton({ value = '', setValue, onComplete, label = 'Dictate' 
       let transcript = ''
       for (let i = 0; i < e.results.length; i++) transcript += e.results[i][0].transcript
       liveRef.current = transcript
-      setValue?.(compose(transcript))   // stream live into the field
+      setValue?.(transcript.trim())   // overwrite the field with the live transcript
     }
     r.onend = () => {
       setRec(false)

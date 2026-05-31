@@ -228,6 +228,7 @@ button { font-family: inherit; }
 .map-legend .swatch.occupied { background: var(--map-occupied); }
 .map-legend .swatch.vacant { background: var(--map-vacant); }
 .map-legend .swatch.checkout { background: var(--map-checkout); }
+.map-legend .swatch.star { background: none; color: #ffcc33; font-size: 15px; line-height: 14px; text-align: center; text-shadow: 0 0 2px rgba(51, 49, 43, 0.45); }
 
 .floor-nav { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .floor-nav .arrow {
@@ -288,6 +289,14 @@ button { font-family: inherit; }
 .fp-room.vacant { background: var(--map-vacant); color: var(--text); }
 .fp-room.checkout { background: var(--map-checkout); color: #5b3d12; }
 .fp-room.other { background: var(--surface-3); color: var(--text-2); }
+/* rooms with an active job: ★ overlay + tappable */
+.fp-room.has-job { cursor: pointer; box-shadow: inset 0 0 0 2px rgba(255, 204, 51, 0.9); }
+.fp-star {
+  position: absolute; top: 2px; right: 5px;
+  font-size: 13px; line-height: 1; color: #ffcc33;
+  text-shadow: 0 0 2px rgba(51, 49, 43, 0.6);
+  pointer-events: none;
+}
 /* doorway opening onto the corridor (gap in the corridor-facing wall) */
 .fp-wing.left .fp-room::after,
 .fp-wing.right .fp-room::after {
