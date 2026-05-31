@@ -61,7 +61,7 @@ export default function Done() {
       </div>
 
       <div className="actionbar">
-        {next && <button className="btn primary" onClick={() => nav(`/jobs/${next.id}`)}>Go to next room</button>}
+        {next && <button className="btn primary" onClick={() => nav(`/jobs/${next.id}`)}>Go to next job</button>}
         <button className="btn secondary" onClick={() => nav('/')}>Back to all jobs</button>
       </div>
     </>

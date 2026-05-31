@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { api } from '../api'
-import { TopBar, AiCard, Skeleton, MicButton, appendText } from '../components/ui'
+import { TopBar, AiCard, Skeleton, MicButton } from '../components/ui'
 import { ESCALATION_REASONS } from '../constants'
 
 export default function Escalate() {
@@ -49,7 +49,6 @@ export default function Escalate() {
       <div className="screen">
         <div className="banner warn">
           <strong>Escalation notifies others and reassigns ownership.</strong>
-          This isn’t a failure — it routes the job to the right people fast.
         </div>
 
         <div className="panel">
@@ -66,7 +65,7 @@ export default function Escalate() {
         <div>
           <label className="field">Note for supervisor</label>
           <textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Anything they should know…" />
-          <div style={{ marginTop: 8 }}><MicButton onText={appendText(setNote)} /></div>
+          <div style={{ marginTop: 8 }}><MicButton value={note} setValue={setNote} /></div>
         </div>
 
         <AiCard title="Who gets notified & why">

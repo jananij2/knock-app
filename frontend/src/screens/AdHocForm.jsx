@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
-import { TopBar, MicButton, appendText } from '../components/ui'
+import { TopBar, MicButton } from '../components/ui'
 
 const TYPES = ['hvac', 'plumbing', 'electrical', 'general']
 
@@ -36,7 +36,7 @@ export default function AdHocForm() {
 
           <label className="field" style={{ marginTop: 12 }}>Issue description</label>
           <textarea rows={3} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="What's the problem?" />
-          <div style={{ marginTop: 8 }}><MicButton onText={appendText(setTitle)} /></div>
+          <div style={{ marginTop: 8 }}><MicButton value={title} setValue={setTitle} /></div>
 
           <label className="field" style={{ marginTop: 12 }}>Job type</label>
           <div className="chips">

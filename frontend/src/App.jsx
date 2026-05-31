@@ -15,6 +15,7 @@ import EndOfShift from './screens/EndOfShift.jsx'
 import Inbox from './screens/Inbox.jsx'
 import Thread from './screens/Thread.jsx'
 import AdHocForm from './screens/AdHocForm.jsx'
+import FloorMap from './screens/FloorMap.jsx'
 
 export default function App() {
   const [ready, setReady] = useState(false)
@@ -26,6 +27,7 @@ export default function App() {
         <Route path="/" element={ended ? <ShiftEnded /> : <Home />} />
         <Route path="/messages" element={<Inbox />} />
         <Route path="/messages/:id" element={<Thread />} />
+        <Route path="/map" element={<FloorMap />} />
         <Route path="/jobs/new" element={<AdHocForm />} />
         <Route path="/jobs/:id" element={<JobDetail />} />
         <Route path="/jobs/:id/message" element={<ConfirmSend />} />

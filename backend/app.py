@@ -233,6 +233,18 @@ def update_findings(job_id):
 # ---------------------------------------------------------------------------
 # Rooms — mid-job context correction (tech's correction is ground truth)
 # ---------------------------------------------------------------------------
+@app.get("/api/rooms")
+def list_rooms():
+    """All rooms, ordered by floor then number — backs the floor-map view."""
+    conn = get_db()
+    try:
+        rows = conn.execute(
+            "SELECT * FROM rooms ORDER BY floor, room_number").fetchall()
+    finally:
+        conn.close()
+    return jsonify([row_to_dict(r) for r in rows])
+
+
 @app.patch("/api/rooms/<room_number>")
 def correct_room(room_number):
     """Update PMS room context when the tech finds it stale.
@@ -456,6 +468,36 @@ def ai_resolution():
         conn.execute("UPDATE jobs SET ai_resolution_summary = ? WHERE id = ?",
                      (result["resolution_summary"], job_id))
         conn.commit()
+    finally:
+        conn.close()
+    return jsonify(result)
+
+
+@app.post("/api/ai/photo-note")
+def ai_photo_note():
+    """Generate a draft maintenance note from a job-site photo (Claude vision).
+    Read-only draft — the tech edits it in the notes field before it's saved via
+    PATCH /api/jobs/<id>/findings. Accepts a data URL or raw base64 image.
+    """
+    data = request.get_json(force=True) or {}
+    job_id = data.get("job_id")
+    image = data.get("image") or ""
+    # Accept a full data URL ("data:image/jpeg;base64,...") or raw base64.
+    media_type = "image/jpeg"
+    if image.startswith("data:"):
+        header, _, image = image.partition(",")
+        if ";" in header and ":" in header:
+            media_type = header.split(":", 1)[1].split(";", 1)[0] or media_type
+    if not image:
+        abort(400, description="image is required")
+
+    conn = get_db()
+    try:
+        job = _job(conn, job_id)
+        if not job:
+            abort(404, description="Job not found")
+        room = _room(conn, job["room_number"])
+        result = ai.note_from_photo(job, room, media_type, image)
     finally:
         conn.close()
     return jsonify(result)

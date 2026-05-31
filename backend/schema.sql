@@ -13,6 +13,8 @@ CREATE TABLE IF NOT EXISTS rooms (
     occupancy_status     TEXT NOT NULL CHECK (occupancy_status IN ('occupied', 'vacant', 'checkout', 'checkin')),
     guest_name           TEXT,
     guest_loyalty_tier   TEXT CHECK (guest_loyalty_tier IN ('standard', 'gold', 'diamond')), -- display only
+    room_type            TEXT NOT NULL DEFAULT 'Standard'
+                            CHECK (room_type IN ('Studio', 'Suite', 'Deluxe', 'Standard')), -- display only
     vip                  INTEGER NOT NULL DEFAULT 0, -- boolean: this room holds a VIP guest (drives behavior)
     checkout_time        TEXT,                       -- ISO 8601 datetime, NULL if vacant
     adjacent_vip         INTEGER NOT NULL DEFAULT 0, -- boolean: a neighbouring room holds a VIP

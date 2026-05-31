@@ -4,7 +4,6 @@ import { api } from '../api'
 import { useShift } from '../ShiftContext'
 import { TopBar, PriorityBadge, StatusBadge, FlagTags, Skeleton, AiCard, SuggestedMessage, fmtClock } from '../components/ui'
 
-const TIER_LABEL = { standard: 'Standard', gold: 'Gold', diamond: 'Diamond' }
 const OCC_LABEL = { occupied: 'Occupied', vacant: 'Vacant', checkout: 'Checking out', checkin: 'Checking in' }
 
 export default function JobDetail() {
@@ -19,6 +18,7 @@ export default function JobDetail() {
   const [aiFailed, setAiFailed] = useState(false)
   const [hasOutbound, setHasOutbound] = useState(false)
   const [regen, setRegen] = useState(false) // user asked for a fresh draft after sending
+  const [msgDraft, setMsgDraft] = useState('') // editable/dictatable guest message
 
   useEffect(() => {
     api.getJob(id).then(setData).catch((e) => setErr(e.message))
@@ -29,7 +29,12 @@ export default function JobDetail() {
     if (!shift) return
     setAi(null)
     setAiFailed(false)
-    api.aiContext(id, shift.tech_name).then(setAi).catch(() => setAiFailed(true))
+    api.aiContext(id, shift.tech_name)
+      .then((r) => {
+        setAi(r)
+        setMsgDraft(r.message_draft || '')
+      })
+      .catch(() => setAiFailed(true))
   }
   useEffect(loadDraft, [id, shift])
 
@@ -62,10 +67,13 @@ export default function JobDetail() {
     nav(`/jobs/${id}/progress`)
   }
 
-  function sendMessage() {
-    nav(`/jobs/${id}/message`, {
-      state: { draft: ai?.message_draft || '', guest: room.guest_name, room: room.room_number, mode: 'initial', returnTo: `/jobs/${id}` },
-    })
+  // Tech edits/dictates the draft above, then sends it directly — the edit +
+  // explicit Send is the human confirmation (no separate confirm-skip screen).
+  async function sendDraft() {
+    if (!msgDraft.trim()) return
+    await api.sendMessage(id, msgDraft.trim())
+    setHasOutbound(true)
+    setRegen(false)
   }
 
   function regenerate() {
@@ -100,7 +108,7 @@ export default function JobDetail() {
           <h3>Room context</h3>
           <div className="kv"><span className="k">Occupancy</span><span className="v">{OCC_LABEL[room.occupancy_status]}</span></div>
           {room.guest_name && <div className="kv"><span className="k">Guest</span><span className="v">{room.guest_name}{room.vip ? ' ★' : ''}</span></div>}
-          {room.guest_loyalty_tier && <div className="kv"><span className="k">Loyalty</span><span className="v">{TIER_LABEL[room.guest_loyalty_tier]}</span></div>}
+          {room.room_type && <div className="kv"><span className="k">Room type</span><span className="v">{room.room_type}</span></div>}
           {room.checkout_time && <div className="kv"><span className="k">Checkout</span><span className="v">{room.checkout_time.split('T')[0]} {fmtClock(room.checkout_time)}</span></div>}
           <div className="kv"><span className="k">Housekeeping</span><span className="v">{room.housekeeping_status}</span></div>
           {room.noise_sensitivity_flag ? <div className="kv"><span className="k">Note</span><span className="v">Noise-sensitive</span></div> : null}
@@ -126,8 +134,11 @@ export default function JobDetail() {
             loading={!ai && !aiFailed}
             failed={aiFailed}
             sent={showSent}
+            editable
+            value={msgDraft}
+            setValue={setMsgDraft}
             draft={ai?.message_draft}
-            onSend={sendMessage}
+            onSend={sendDraft}
             onRegenerate={regenerate}
           />
         )}

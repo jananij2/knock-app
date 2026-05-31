@@ -40,7 +40,8 @@ export const api = {
   protocolSkip: (id, detail) =>
     req(`/jobs/${id}/protocol-skip`, json('POST', { detail })),
 
-  // room correction
+  // rooms
+  listRooms: () => req('/rooms'),
   correctRoom: (room, payload) => req(`/rooms/${room}`, json('PATCH', payload)),
 
   // AI (drafts — caller confirms before send/log)
@@ -49,6 +50,8 @@ export const api = {
     req('/ai/resolution', json('POST', { job_id, findings, tech_notes })),
   aiEscalation: (job_id, reason_chips) =>
     req('/ai/escalation', json('POST', { job_id, reason_chips })),
+  aiPhotoNote: (job_id, image) =>
+    req('/ai/photo-note', json('POST', { job_id, image })),
   aiHandoff: () => req('/ai/handoff', json('POST', {})),
 
   // shift

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { api } from '../api'
-import { TopBar, AiCard, Skeleton, SuggestedMessage, MicButton, appendText } from '../components/ui'
+import { TopBar, AiCard, Skeleton, SuggestedMessage, MicButton } from '../components/ui'
 
 export default function ResolutionConfirm() {
   const { id } = useParams()
@@ -90,7 +90,7 @@ export default function ResolutionConfirm() {
           ) : (
             <>
               <textarea rows={4} value={summary} onChange={(e) => setSummary(e.target.value)} placeholder="Summarize what was found and fixed…" />
-              <div style={{ marginTop: 8 }}><MicButton onText={appendText(setSummary)} /></div>
+              <div style={{ marginTop: 8 }}><MicButton value={summary} setValue={setSummary} /></div>
             </>
           )}
         </AiCard>
@@ -111,7 +111,7 @@ export default function ResolutionConfirm() {
           </div>
           <label className="field" style={{ marginTop: 10 }}>Parts used</label>
           <input type="text" value={parts} onChange={(e) => setParts(e.target.value)} placeholder="e.g. thermostat sensor" />
-          <div style={{ marginTop: 8 }}><MicButton onText={appendText(setParts)} /></div>
+          <div style={{ marginTop: 8 }}><MicButton value={parts} setValue={setParts} /></div>
         </div>
 
         {/* close-out guest message — same suggestion pattern as Job Detail */}
@@ -125,7 +125,6 @@ export default function ResolutionConfirm() {
           setValue={setCloseout}
           onSend={sendCloseout}
           onRegenerate={regenCloseout}
-          sendLabel="Send close-out message"
           skipNote="Skip if the guest was already updated in person."
         />
       </div>

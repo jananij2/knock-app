@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { api } from '../api'
-import { TopBar, fmtClock, HoldToSend, isImageMsg } from '../components/ui'
+import { TopBar, fmtClock, MessageComposer, isImageMsg } from '../components/ui'
 
 // One job's message history, with the job context pinned above the thread.
 export default function Thread() {
@@ -36,7 +36,7 @@ export default function Thread() {
           ))}
         </div>
 
-        <HoldToSend jobId={id} onSent={(m) => setMessages((p) => [...p, m])} />
+        <MessageComposer jobId={id} onSent={(m) => setMessages((p) => [...p, m])} />
       </div>
     </>
   )

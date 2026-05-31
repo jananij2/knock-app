@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { useShift } from '../ShiftContext'
-import { TopBar, AiCard, Skeleton, StatusBadge, MicButton, appendText, fmtClock } from '../components/ui'
+import { TopBar, AiCard, Skeleton, StatusBadge, MicButton, fmtClock } from '../components/ui'
 
 export default function EndOfShift() {
   const nav = useNavigate()
@@ -64,7 +64,7 @@ export default function EndOfShift() {
           {ai || aiFailed ? (
             <>
               <textarea rows={5} value={handoff} onChange={(e) => setHandoff(e.target.value)} />
-              <div style={{ marginTop: 8 }}><MicButton onText={appendText(setHandoff)} /></div>
+              <div style={{ marginTop: 8 }}><MicButton value={handoff} setValue={setHandoff} /></div>
             </>
           ) : (
             <Skeleton lines={4} />

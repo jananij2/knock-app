@@ -45,6 +45,11 @@
   --flag-repeat: #94A89A;   /* teal */
   --flag-checkout: #9CB380; /* green */
 
+  /* floor-map occupancy colors */
+  --map-occupied: #A44A3F;  /* red */
+  --map-vacant: #9CB380;    /* green */
+  --map-checkout: #E0A24E;  /* amber */
+
   --warn-bg: #f4ecd9;
   --warn-line: #C7AC92;
   --warn-text: #7a5a39;
@@ -213,6 +218,84 @@ button { font-family: inherit; }
 /* DM-style messages icon, top-right of the home header */
 .dm-btn { position: absolute; top: 14px; right: 14px; background: none; border: none; color: #fff; cursor: pointer; padding: 4px; line-height: 0; z-index: 1; }
 .dm-badge { position: absolute; top: -3px; right: -5px; background: var(--c-lime); color: #33312b; font-size: 10px; font-weight: 800; min-width: 17px; height: 17px; border-radius: 999px; display: flex; align-items: center; justify-content: center; padding: 0 4px; box-shadow: 0 0 0 2px var(--brand); }
+/* floor-map icon, stacked directly below the messages icon */
+.map-btn { position: absolute; top: 50px; right: 14px; background: none; border: none; color: #fff; cursor: pointer; padding: 4px; line-height: 0; z-index: 1; }
+
+/* ---- floor map ---- */
+.map-legend { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; }
+.map-legend .item { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-2); }
+.map-legend .swatch { width: 14px; height: 14px; border-radius: 4px; display: inline-block; }
+.map-legend .swatch.occupied { background: var(--map-occupied); }
+.map-legend .swatch.vacant { background: var(--map-vacant); }
+.map-legend .swatch.checkout { background: var(--map-checkout); }
+
+.floor-nav { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.floor-nav .arrow {
+  width: 44px; height: 44px; flex: none;
+  border: 1.5px solid var(--surface-3); background: var(--surface);
+  border-radius: 999px; font-size: 24px; line-height: 1; color: var(--brand);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+.floor-nav .arrow:disabled { opacity: 0.35; cursor: default; }
+.floor-title { text-align: center; }
+.floor-title .n { font-size: 20px; font-weight: 800; color: var(--text); }
+.floor-title .h { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-3); }
+
+/* top-down blueprint: rooms line both sides of a central corridor.
+   NOTE: classes are fp-* scoped so none collide with .jobcard .room etc. */
+.fp {
+  --fp-bg: #e7edf0;
+  background-color: var(--fp-bg);
+  background-image:
+    linear-gradient(rgba(94, 115, 103, 0.10) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(94, 115, 103, 0.10) 1px, transparent 1px);
+  background-size: 16px 16px;
+  border: 1.5px solid var(--surface-3);
+  border-radius: var(--radius);
+  padding: 14px;
+  box-shadow: var(--shadow);
+}
+.fp-marker {
+  text-align: center; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--text-3); border: 1.5px dashed var(--surface-3); border-radius: 6px;
+  padding: 6px; margin-bottom: 12px; background: rgba(255, 255, 255, 0.5);
+}
+.fp-body { display: flex; align-items: flex-start; }
+.fp-wing { flex: 1; display: flex; flex-direction: column; gap: 10px; }
+.fp-corridor {
+  position: relative; width: 40px; flex: none; align-self: stretch;
+  display: flex; align-items: center; justify-content: center;
+}
+.fp-corridor::before {           /* hallway centre line */
+  content: ''; position: absolute; top: 2px; bottom: 2px; left: 50%;
+  border-left: 2px dashed #9fb0a6; transform: translateX(-50%);
+}
+.fp-corridor span {
+  writing-mode: vertical-rl; text-orientation: mixed; transform: rotate(180deg);
+  font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--text-3);
+  background: var(--fp-bg); padding: 8px 0;
+}
+.fp-room {                        /* landscape footprint — wider than tall */
+  position: relative;
+  height: 46px;
+  border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 14px;
+  border: 1.5px solid rgba(51, 49, 43, 0.20);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+}
+.fp-room.occupied { background: var(--map-occupied); color: #fff; }
+.fp-room.vacant { background: var(--map-vacant); color: var(--text); }
+.fp-room.checkout { background: var(--map-checkout); color: #5b3d12; }
+.fp-room.other { background: var(--surface-3); color: var(--text-2); }
+/* doorway opening onto the corridor (gap in the corridor-facing wall) */
+.fp-wing.left .fp-room::after,
+.fp-wing.right .fp-room::after {
+  content: ''; position: absolute; top: 50%; transform: translateY(-50%);
+  width: 4px; height: 14px; background: var(--fp-bg);
+}
+.fp-wing.left .fp-room::after { right: -2px; }
+.fp-wing.right .fp-room::after { left: -2px; }
 
 .shift-header { color: var(--on-dark); }
 .shift-header .logo { font-size: 15px; font-weight: 800; letter-spacing: 0.06em; color: #fff; margin-bottom: 6px; }
@@ -272,7 +355,7 @@ label.field { display: block; font-size: 13px; color: var(--text-2); margin-bott
 
 .toggle-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; }
 .toggle-row + .toggle-row { border-top: 1px solid var(--line); }
-.seg { display: flex; gap: 6px; }
+.seg { display: flex; flex-wrap: wrap; gap: 6px; }   /* wrap so options stay inside the frame */
 .seg button {
   border: 1.5px solid var(--surface-3);
   background: var(--surface);
@@ -298,13 +381,15 @@ label.field { display: block; font-size: 13px; color: var(--text-2); margin-bott
   font-weight: 700;
   cursor: pointer;
   padding: 0 16px;
+  white-space: nowrap;          /* labels never wrap */
 }
 .btn:disabled { opacity: 0.5; }
 .btn.primary { background: var(--brand); color: #fff; }
 .btn.primary:active { background: var(--brand-dark); }
 .btn.secondary { background: var(--surface); color: var(--text); border: 1.5px solid var(--surface-3); }
 .btn.danger { background: var(--urgent); color: #fff; }
-.btn.ghost { background: transparent; color: var(--text-2); }
+/* ghost still reads as a button — visible outline (e.g. the Escalate action) */
+.btn.ghost { background: transparent; color: var(--text-2); border: 1.5px solid var(--surface-3); }
 .btn.success { background: #3f5a2c; color: #fff; }
 .btn.success:active { background: #324827; }
 
@@ -417,6 +502,23 @@ label.field { display: block; font-size: 13px; color: var(--text-2); margin-bott
 /* ---- voice input button (used on every text field) ---- */
 .mic { display: inline-flex; align-items: center; gap: 6px; border: 1.5px solid var(--surface-3); background: var(--surface); color: var(--text-2); font-size: 13px; font-weight: 600; padding: 9px 13px; border-radius: 999px; cursor: pointer; white-space: nowrap; }
 .mic.rec { background: var(--brand); border-color: var(--brand); color: #fff; }
+
+/* ---- follow-up message composer (outlined like other actionable cards) ---- */
+.composer {
+  margin-top: 12px;
+  border: 1px solid #dce3c5;
+  border-radius: var(--radius);
+  padding: 14px;
+  background: linear-gradient(135deg, #eef3df, #f4ecd9);
+}
+.composer-title {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--brand);
+  margin-bottom: 8px;
+}
 
 /* ---- suggested-message actions + sent state ---- */
 .msg-actions { display: flex; gap: 8px; align-items: center; margin-top: 10px; }

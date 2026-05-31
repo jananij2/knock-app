@@ -34,13 +34,34 @@ ALL_TABLES = [
 # rooms: PMS snapshot for the rooms referenced by this shift's jobs.
 # vip is an explicit boolean (loyalty tier is display-only, drives no behavior).
 ROOMS = [
-    # room   flr occupancy   guest                  tier        vip checkout_time          adj_vip noise hk
-    ("312", 3, "occupied", "Minerva McGonagall", "diamond", 1, "2026-06-02T11:00:00", 0, 1, "clean"),
-    ("214", 2, "checkout", "Ron Weasley",        "standard", 0, "2026-05-30T11:00:00", 0, 0, "dirty"),
-    ("408", 4, "occupied", "Hermione Granger",   "gold",     0, "2026-05-31T11:00:00", 0, 0, "clean"),
-    ("301", 3, "checkout", "Draco Malfoy",       "standard", 0, "2026-05-30T12:00:00", 0, 0, "dirty"),
-    ("502", 5, "vacant",   None,                  None,       0, None,                  0, 0, "in_progress"),
+    # room   flr occupancy   guest                  tier        room_type   vip checkout_time          adj_vip noise hk
+    ("312", 3, "occupied", "Minerva McGonagall", "diamond", "Suite",    1, "2026-06-02T11:00:00", 0, 1, "clean"),
+    ("214", 2, "checkout", "Ron Weasley",        "standard", "Standard", 0, "2026-05-30T11:00:00", 0, 0, "dirty"),
+    ("408", 4, "occupied", "Hermione Granger",   "gold",     "Deluxe",   0, "2026-05-31T11:00:00", 0, 0, "clean"),
+    ("301", 3, "checkout", "Draco Malfoy",       "standard", "Standard", 0, "2026-05-30T12:00:00", 0, 0, "dirty"),
+    ("502", 5, "vacant",   None,                  None,       "Studio",   0, None,                  0, 0, "in_progress"),
 ]
+
+# Filler rooms so each floor (2–5) reads like a real hotel floor (~10 rooms).
+# The 5 job rooms above carry the "real" scenario state (including the amber
+# checkouts); these extras have no jobs and default to a deterministic mix of
+# occupied and vacant so the floor map looks lived-in.
+_NAMED_ROOMS = {r[0] for r in ROOMS}
+_FILLER_TYPES = ("Standard", "Deluxe", "Suite", "Studio")
+FILLER_ROOMS = []
+for _floor in (2, 3, 4, 5):
+    for _n in range(1, 11):  # rooms x01–x10
+        _num = f"{_floor}{_n:02d}"
+        if _num in _NAMED_ROOMS:
+            continue
+        _occ = "occupied" if _n % 2 == 0 else "vacant"
+        _hk = "dirty" if _occ == "occupied" else "clean"
+        FILLER_ROOMS.append(
+            # room  flr     occ   guest tier  room_type                 vip ckout adj noise hk
+            (_num, _floor, _occ, None, None, _FILLER_TYPES[_n % len(_FILLER_TYPES)],
+             0, None, 0, 0, _hk))
+
+ALL_ROOMS = ROOMS + FILLER_ROOMS
 
 # jobs: all pending at start of shift. Sorted here by urgency then time pressure
 # for readability; the API does the real ordering.
@@ -86,10 +107,10 @@ def seed() -> None:
 
         conn.executemany(
             """INSERT INTO rooms
-                 (room_number, floor, occupancy_status, guest_name, guest_loyalty_tier, vip,
+                 (room_number, floor, occupancy_status, guest_name, guest_loyalty_tier, room_type, vip,
                   checkout_time, adjacent_vip, noise_sensitivity_flag, housekeeping_status)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            ROOMS,
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            ALL_ROOMS,
         )
 
         conn.executemany(

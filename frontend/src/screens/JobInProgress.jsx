@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { api } from '../api'
-import { TopBar, fmtClock, MicButton, appendText, HoldToSend, isImageMsg } from '../components/ui'
+import { TopBar, fmtClock, MicButton, MessageComposer, isImageMsg } from '../components/ui'
 import { FINDING_CHIPS } from '../constants'
 
 export default function JobInProgress() {
@@ -12,13 +12,39 @@ export default function JobInProgress() {
   const [note, setNote] = useState('')
   const [messages, setMessages] = useState([])
   const [saving, setSaving] = useState(false)
+  const [photoNoteLoading, setPhotoNoteLoading] = useState(false)
 
-  // A photo attachment is logged as an image bubble in the job's message thread.
+  // Append text to the notes field without clobbering what's already there.
+  function appendNote(text) {
+    setNote((prev) => (prev && prev.trim() ? `${prev.trim()}\n${text}` : text))
+  }
+
+  // A completed voice note is sent to the guest as an outbound message (same
+  // send path as any guest message), alongside being saved into the notes field
+  // (streamed there live as spoken). Vacant rooms have no guest to message, so
+  // the note only lives in Notes there.
+  async function addVoiceNote(text) {
+    if (data?.room?.occupancy_status === 'vacant') return
+    try {
+      const m = await api.sendMessage(id, text)
+      setMessages((prev) => [...prev, m])
+    } catch { /* ignore — note still lives in the notes field */ }
+  }
+
+  // A photo is logged as an image bubble in the thread AND sent to Claude to
+  // draft a maintenance note, which drops into the notes field (editable there).
   async function addPhoto(dataUrl) {
     try {
       const m = await api.sendMessage(id, dataUrl)
       setMessages((prev) => [...prev, m])
     } catch { /* ignore — photo just won't persist */ }
+    setPhotoNoteLoading(true)
+    try {
+      const r = await api.aiPhotoNote(id, dataUrl)
+      if (r?.maintenance_note) appendNote(r.maintenance_note)
+    } catch { /* ignore — tech can still write the note manually */ } finally {
+      setPhotoNoteLoading(false)
+    }
   }
 
   useEffect(() => {
@@ -80,11 +106,12 @@ export default function JobInProgress() {
         <div className="panel">
           <h3>Notes</h3>
           <textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} placeholder="What did you find?" />
+          {photoNoteLoading && <p className="muted" style={{ fontSize: 12, marginTop: 6 }}>✦ Drafting a note from your photo…</p>}
           <div className="attach-row" style={{ marginTop: 10 }}>
-            <MicButton onText={appendText(setNote)} label="Voice note" />
+            <MicButton value={note} setValue={setNote} onComplete={addVoiceNote} label="Voice note" />
             <PhotoButton onAdd={addPhoto} />
           </div>
-          <p className="muted" style={{ fontSize: 12 }}>Photos appear in the message thread below.</p>
+          <p className="muted" style={{ fontSize: 12 }}>Voice notes are sent to the guest and appear in the message thread below; photos are attached there too.</p>
         </div>
 
         {/* Mid-job context correction */}
@@ -103,7 +130,7 @@ export default function JobInProgress() {
             ))}
           </div>
           {room.occupancy_status !== 'vacant' && (
-            <HoldToSend
+            <MessageComposer
               jobId={id}
               onSent={(m) => setMessages((prev) => [...prev, m])}
             />
@@ -175,7 +202,7 @@ function RoomCorrection({ room, jobId, onUpdated }) {
       <div className="kv"><span className="k">Current</span><span className="v">{room.occupancy_status}</span></div>
       {!open ? (
         <button className="link-btn" style={{ marginTop: 8 }} onClick={() => setOpen(true)}>
-          PMS data wrong? Update room status →
+          Update room status if incorrect →
         </button>
       ) : (
         <div style={{ marginTop: 10 }}>

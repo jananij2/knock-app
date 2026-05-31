@@ -80,6 +80,37 @@ def _complete(task_instructions: str, payload: dict, schema: dict,
     return json.loads(text)
 
 
+def _complete_with_image(task_instructions: str, payload: dict, media_type: str,
+                         image_b64: str, schema: dict, max_tokens: int = 400) -> dict:
+    """One structured-output call that also sees an image (Claude vision).
+
+    Same contract as _complete, but the user turn carries an image block ahead of
+    the JSON context so the model can describe what it sees. Raises on error.
+    """
+    client = _get_client()
+    resp = client.messages.create(
+        model=MODEL,
+        max_tokens=max_tokens,
+        thinking={"type": "disabled"},
+        output_config={
+            "effort": "low",
+            "format": {"type": "json_schema", "schema": schema},
+        },
+        system=[
+            {"type": "text", "text": SYSTEM_PREAMBLE},
+            {"type": "text", "text": task_instructions,
+             "cache_control": {"type": "ephemeral"}},
+        ],
+        messages=[{"role": "user", "content": [
+            {"type": "image", "source": {"type": "base64",
+                                         "media_type": media_type, "data": image_b64}},
+            {"type": "text", "text": json.dumps(payload, ensure_ascii=False)},
+        ]}],
+    )
+    text = "".join(b.text for b in resp.content if b.type == "text")
+    return json.loads(text)
+
+
 def _obj(props: dict) -> dict:
     """Build a strict JSON schema object from {name: "string"} property specs."""
     return {
@@ -184,6 +215,35 @@ def resolution_and_closeout(job, room, chips, tech_notes, tickets):
         log.warning("resolution_and_closeout fell back to template: %s", e)
         fb = _fallback_resolution_and_closeout(job, room, chips, tech_notes, tickets)
         return {**fb, **escalation, "generated_by": "fallback"}
+
+
+# ---------------------------------------------------------------------------
+# 4b. Maintenance note from a job-site photo (Claude vision)
+# ---------------------------------------------------------------------------
+PHOTO_NOTE_INSTRUCTIONS = (
+    "You are shown a photo taken by the technician at a maintenance job, plus the "
+    "job context. Write maintenance_note: 1-3 plain sentences describing what the "
+    "photo shows that is relevant to this job — the visible condition, damage, or "
+    "part — as a note for the ticket log. Describe only what is actually visible; "
+    "do not guess at causes you cannot see. This is a draft the tech edits before saving."
+)
+PHOTO_NOTE_SCHEMA = _obj({"maintenance_note": "string"})
+
+
+def note_from_photo(job, room, media_type, image_b64):
+    payload = {
+        "job_title": job["title"],
+        "room_number": job["room_number"],
+        "job_type": job["job_type"],
+    }
+    try:
+        out = _complete_with_image(PHOTO_NOTE_INSTRUCTIONS, payload, media_type,
+                                   image_b64, PHOTO_NOTE_SCHEMA, max_tokens=400)
+        return {"maintenance_note": out["maintenance_note"], "generated_by": "claude"}
+    except Exception as e:  # noqa: BLE001 — degrade gracefully
+        log.warning("note_from_photo fell back to template: %s", e)
+        return {"maintenance_note": _fallback_photo_note(job),
+                "generated_by": "fallback"}
 
 
 # ---------------------------------------------------------------------------
@@ -313,6 +373,11 @@ def _fallback_resolution_and_closeout(job, room, chips, tech_notes, tickets):
                 f"{job['room_number']}. Please let the front desk know if anything still "
                 "needs attention. Thank you.")
     return {"resolution_summary": " ".join(parts), "closeout_message": closeout}
+
+
+def _fallback_photo_note(job):
+    return (f"Photo attached for {job['title'].lower()} in room {job['room_number']}. "
+            "Add a description of what the photo shows.")
 
 
 def _fallback_routing_summary(routing, is_vip, is_safety):

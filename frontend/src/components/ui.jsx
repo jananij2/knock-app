@@ -107,15 +107,27 @@ export function fmtClock(iso) {
   return `${h12}:${m} ${ampm}`
 }
 
-// ---- voice input (Web Speech API) — append dictated text to any field ----
-// Reusable across every text field. Renders nothing where unsupported.
-export function MicButton({ onText, label = 'Dictate' }) {
+// ---- voice input (Web Speech API) — streams dictation into a field live ----
+// Controlled: pass the field's current `value` + its `setValue`. As the user
+// speaks, interim results are written into the field in real time (not only when
+// they stop). `onComplete(text)` fires once on stop with the dictated text — used
+// where dictation also needs to do something else (e.g. post it to the thread).
+// Renders the button everywhere (Safari/iOS lacks SpeechRecognition — detected on tap).
+export function MicButton({ value = '', setValue, onComplete, label = 'Dictate' }) {
   const [rec, setRec] = useState(false)
   const [noSupport, setNoSupport] = useState(false)
   const ref = useRef(null)
+  const baseRef = useRef('')   // field text captured when recording started
+  const liveRef = useRef('')   // full transcript dictated this session
 
-  // Always render the button (Safari/iOS lacks SpeechRecognition — previously
-  // returning null hid it on mobile). Detect support on tap instead.
+  // base + the live transcript, with one space between when both are present.
+  function compose(transcript) {
+    const base = baseRef.current
+    const t = (transcript || '').trim()
+    if (!t) return base
+    return base && base.trim() ? `${base.trim()} ${t}` : t
+  }
+
   function toggle() {
     const SR = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition)
     if (!SR) {
@@ -126,14 +138,23 @@ export function MicButton({ onText, label = 'Dictate' }) {
       ref.current?.stop()
       return
     }
+    baseRef.current = value || ''
+    liveRef.current = ''
     const r = new SR()
     r.lang = 'en-US'
-    r.interimResults = false
+    r.interimResults = true   // emit partial words as they're recognized
+    r.continuous = true       // keep listening until the tech taps stop
     r.onresult = (e) => {
-      const t = Array.from(e.results).map((x) => x[0].transcript).join(' ').trim()
-      if (t) onText(t)
+      let transcript = ''
+      for (let i = 0; i < e.results.length; i++) transcript += e.results[i][0].transcript
+      liveRef.current = transcript
+      setValue?.(compose(transcript))   // stream live into the field
     }
-    r.onend = () => setRec(false)
+    r.onend = () => {
+      setRec(false)
+      const t = liveRef.current.trim()
+      if (t) onComplete?.(t)
+    }
     r.onerror = () => setRec(false)
     ref.current = r
     r.start()
@@ -150,54 +171,35 @@ export function MicButton({ onText, label = 'Dictate' }) {
 // True when a message's content is an inline image (data URL from a photo attach).
 export const isImageMsg = (c) => typeof c === 'string' && c.startsWith('data:image')
 
-// Append helper for the common "add dictation to a textarea value" pattern.
-export const appendText = (setter) => (t) =>
-  setter((v) => (v && v.trim() ? `${v} ${t}` : t))
-
-// ---- follow-up send requires a 1-second hold (prevents accidental sends) ----
-// Shared between the in-job thread and the inbox thread view.
-export function HoldToSend({ jobId, onSent }) {
+// ---- follow-up message composer (regular Send — no hold-to-send) ----
+// Shared between the in-job thread and the inbox thread view. Bordered like the
+// other actionable cards for visual consistency.
+export function MessageComposer({ jobId, onSent }) {
   const [text, setText] = useState('')
-  const [pct, setPct] = useState(0)
-  const timer = useRef(null)
-  const start = useRef(0)
+  const [sending, setSending] = useState(false)
 
-  function begin() {
-    if (!text.trim()) return
-    start.current = performance.now()
-    timer.current = setInterval(() => {
-      const p = Math.min(100, ((performance.now() - start.current) / 1000) * 100)
-      setPct(p)
-      if (p >= 100) fire()
-    }, 30)
-  }
-  function cancel() {
-    clearInterval(timer.current)
-    setPct(0)
-  }
-  async function fire() {
-    clearInterval(timer.current)
-    setPct(0)
-    const msg = await api.sendMessage(jobId, text.trim())
-    onSent(msg)
-    setText('')
+  async function send() {
+    if (!text.trim() || sending) return
+    setSending(true)
+    try {
+      const msg = await api.sendMessage(jobId, text.trim())
+      onSent(msg)
+      setText('')
+    } finally {
+      setSending(false)
+    }
   }
 
   return (
-    <div style={{ marginTop: 10 }}>
+    <div className="composer">
+      <div className="composer-title">Follow-up message</div>
       <textarea rows={2} value={text} onChange={(e) => setText(e.target.value)} placeholder="Follow-up message…" />
-      <div style={{ marginTop: 8 }}><MicButton onText={appendText(setText)} /></div>
-      <button
-        className="btn primary hold"
-        style={{ marginTop: 8 }}
-        disabled={!text.trim()}
-        onPointerDown={begin}
-        onPointerUp={cancel}
-        onPointerLeave={cancel}
-      >
-        <span className="fill" style={{ width: `${pct}%` }} />
-        Hold to send (1s)
-      </button>
+      <div className="msg-actions">
+        <MicButton value={text} setValue={setText} />
+        <button className="btn primary" disabled={!text.trim() || sending} onClick={send}>
+          Send message
+        </button>
+      </div>
     </div>
   )
 }
@@ -242,7 +244,7 @@ export function SuggestedMessage({
       )}
       {!loading && (
         <div className="msg-actions">
-          {editable && !failed && <MicButton onText={appendText(setValue)} />}
+          {editable && !failed && <MicButton value={value} setValue={setValue} />}
           <button
             type="button"
             className="btn primary"

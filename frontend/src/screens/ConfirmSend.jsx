@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { api } from '../api'
-import { TopBar, MicButton, appendText } from '../components/ui'
+import { TopBar, MicButton } from '../components/ui'
 import { HOTEL_NAME } from '../constants'
 
 // Used for the initial guest message. Message is NEVER sent without this
@@ -52,7 +52,7 @@ export default function ConfirmSend() {
         <div>
           <label className="field">Message</label>
           <textarea rows={5} value={text} onChange={(e) => setText(e.target.value)} />
-          <div style={{ marginTop: 8 }}><MicButton onText={appendText(setText)} /></div>
+          <div style={{ marginTop: 8 }}><MicButton value={text} setValue={setText} /></div>
         </div>
 
         <div className="banner warn">
@@ -65,7 +65,7 @@ export default function ConfirmSend() {
 
       <div className="actionbar">
         <button className="btn primary" disabled={sending || !text.trim()} onClick={confirmSend}>
-          {sending ? 'Sending…' : 'Confirm & send'}
+          {sending ? 'Sending…' : 'Send message'}
         </button>
         <button className="btn ghost" onClick={() => nav(-1)}>Cancel</button>
       </div>
