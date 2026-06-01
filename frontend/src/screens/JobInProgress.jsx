@@ -87,7 +87,7 @@ export default function JobInProgress() {
       <TopBar title={job.title} sub={`Room ${job.room_number} · in progress`} back={`/jobs/${id}`} />
       <div className="screen">
         {/* Live job timer (runs from when the job was started) */}
-        <JobTimer startedAt={job.started_at} />
+        <JobTimer />
 
         {/* Findings chips */}
         <div className="panel">
@@ -152,8 +152,8 @@ export default function JobInProgress() {
 }
 
 // ---- live elapsed-time counter, ticking from when the job was started ----
-function JobTimer({ startedAt }) {
-  const startRef = useRef(startedAt ? new Date(startedAt).getTime() : Date.now())
+function JobTimer() {
+  const startRef = useRef(Date.now())
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000)
